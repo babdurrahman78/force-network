@@ -1,113 +1,187 @@
-import Image from "next/image";
+"use client";
+
+import * as d3 from "d3";
+import {useEffect} from "react";
+import {linksD, nodesD} from "./constant1";
 
 export default function Home() {
+  useEffect(() => {
+    const width = 928;
+    const height = 600;
+
+    // Specify the color scale.
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+    // The force simulation mutates links and nodes, so create a copy
+    // so that re-evaluating this cell produces the same result.
+    const links = linksD.map(d => ({...d}));
+    const nodes = nodesD.map(d => ({...d}));
+
+    // Create a simulation with several forces.
+    const simulation = d3
+      .forceSimulation<any>(nodes)
+      .force(
+        "link",
+        d3
+          .forceLink(links)
+          .id((d: any) => d.name)
+          .distance(100)
+      )
+      .force("charge", d3.forceManyBody())
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .on("tick", ticked);
+
+    // Create the SVG container.
+    const svg = d3
+      .select("#myPlot")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("viewBox", [0, 0, width, height])
+      .attr("style", "max-width: 100%; height: auto;");
+
+    // Add a line for each link, and a circle for each node.
+    const link = svg
+      .append("g")
+      .attr("stroke", "#999")
+      .attr("stroke-opacity", 0.6)
+      .selectAll()
+      .data(links)
+      .join("line")
+      .attr("stroke-width", 2)
+      .style("marker-end", "url(#test)");
+
+    const node = svg
+      .append("g")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1.5)
+      .selectAll()
+      .data(nodes)
+      .join("g");
+
+    node
+      .append("circle")
+      .attr("r", 5)
+      .attr("fill", d => color(d.group))
+      .on("mouseover", mouseover)
+      .on("mouseout", mouseout);
+
+    node
+      .append("text")
+      .text((d: any) => d.name)
+      .style("font", "15px sans-serif")
+      .style("font-weight", 400)
+      .attr("stroke", (d: any) => color(d.group))
+      .attr("dx", 12)
+      .attr("dy", "0.35em");
+
+    svg
+      .append("defs")
+      .selectAll("marker")
+      .data(links)
+      .enter()
+      .append("marker")
+      .attr("id", "test")
+      .attr("viewBox", "0, -5, 10, 10")
+      .attr("refX", 0)
+      .attr("markerWidth", 4)
+      .attr("markerHeight", 4)
+      .attr("orient", "auto")
+      .style("fill", "context-fill")
+      .style("fill", "#999")
+      // .style("opacity", options.opacity)
+      .append("path")
+      .attr("d", "M0,-5 L10,0 L0,5");
+
+    var div = d3
+      .select("body")
+      .append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+
+    div.html("emomlex");
+
+    // Set the position attributes of links and nodes each time the simulation ticks.
+    function ticked() {
+      function idx(d: any, type: any) {
+        // var linkWidthFunc = eval("(" + options.linkWidth + ")");
+        var a = d.target.x - d.source.x;
+        var b = d.target.y - d.source.y;
+        var c = Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2));
+        if (type == "x1") return d.source.x;
+        if (type == "y1") return d.source.y;
+        if (type == "x2") return d.target.x - (15 * a) / c;
+        if (type == "y2") return d.target.y - (15 * b) / c;
+      }
+
+      link
+        .attr("x1", d => idx(d, "x1"))
+        .attr("y1", d => idx(d, "y1"))
+        .attr("x2", d => idx(d, "x2"))
+        .attr("y2", d => idx(d, "y2"));
+
+      node.attr("transform", (d: any) => `translate(${d.x}, ${d.y} )`);
+    }
+
+    var linkedByIndex = {};
+    linksD.forEach(item => {
+      linkedByIndex[item.source + "," + item.target] = 1;
+      linkedByIndex[item.target + "," + item.source] = 1;
+    });
+
+    function neighboring(a: any, b: any) {
+      return linkedByIndex[a.name + "," + b.name];
+    }
+
+    function mouseover(d: any, value: any) {
+      console.log(value);
+      // unfocus non-connected links and nodes
+      //if (options.focusOnHover) {
+      var unfocusDivisor = 4;
+
+      link
+        .transition()
+        .duration(200)
+        .style("opacity", function (l) {
+          return value != l.source && value != l.target ? 1 / 4 : 1;
+        });
+
+      node
+        .transition()
+        .duration(200)
+        .style("opacity", function (o: any) {
+          return value.index == o.index || neighboring(value, o) ? 1 : 1 / 4;
+        });
+
+      div
+        .html(value.Eigen_Weighted)
+        .style("opacity", 1)
+        .style("left", d.pageX + 10 + "px")
+        .style("top", d.pageY + 10 + "px");
+    }
+
+    function mouseout(this: any) {
+      node.style("opacity", 1);
+      link.style("opacity", 1);
+
+      d3.select(this)
+        .select("circle")
+        .transition()
+        .duration(750)
+        .attr("r", function (d) {
+          return 15;
+        });
+      d3.select(this)
+        .select("text")
+        .transition()
+        .duration(1250)
+        .attr("x", 0)
+        .style("opacity", 1 / 4);
+    }
+  }, []);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+    <main className="flex min-h-screen bg-white flex-col items-center justify-between p-24">
+      <svg id="myPlot" />
     </main>
   );
 }

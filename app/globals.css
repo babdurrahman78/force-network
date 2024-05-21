@@ -31,3 +31,14 @@ body {
     text-wrap: balance;
   }
 }
+
+.tooltip {
+  position: absolute;
+  text-align: center;
+  background-color: #f7f8f9;
+  color: black;
+  pointer-events: none;
+  border: 5px solid #e3e3e3;
+  font-size: 16px;
+  padding: 10px;
+}
